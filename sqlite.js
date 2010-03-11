@@ -19,9 +19,32 @@ var sys = require("sys");
 var puts = sys.puts;
 var sqlite = require("./sqlite3_bindings");
 
-var Database = exports.Database = sqlite.Database;
+var Database = exports.Database = function () {
+  this.queue = [];
+}
+
+sys.inherits(Database, sqlite.Database);
+
+Database.prototype.dispatch = function () {
+  if (!this.queue || this.currentQuery
+                  || this.queue.length > 0) {
+    return;
+  }
+  this.currentQuery = this.queue.shift();
+  this.executeQuery.apply(this, this.currentQuery[0]);
+}
 
 Database.prototype.query = function (sql, bindings, queryCallback) {
+  this.queue = this.queue || [];
+  this.queue.push([sql, bindings, queryCallback]);
+  this.dispatch();
+}
+//   process.nextTick(function () {
+//     var query = this.queue.shift();
+//     this.executeQuery.apply(this, query);
+//   });
+
+Database.prototype.executeQuery = function(sql, bindings, queryCallback) {
   var self = this;
 
   if (typeof(bindings) == "function") {
@@ -29,8 +52,6 @@ Database.prototype.query = function (sql, bindings, queryCallback) {
     bindings = callback;
     callback = tmp;
   }
-
-  var all = [];
 
   // Iterate over the list of bindings. Since we can't use something as
   // simple as a for or while loop, we'll use the event loop
@@ -59,7 +80,9 @@ Database.prototype.query = function (sql, bindings, queryCallback) {
   function queryDone(statement, rows) {
     if (statement.tail) {
       puts("omg it has a tail");
-      self.prepare(statement.tail, onPrepare);
+      statement.finalize(function () {
+        self.prepare(statement.tail, onPrepare);
+      });
     }
     queryCallback(undefined, rows);
   }
