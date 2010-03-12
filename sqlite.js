@@ -20,18 +20,33 @@ var puts = sys.puts;
 var sqlite = require("./sqlite3_bindings");
 
 var Database = exports.Database = function () {
+  var self = this;
   this.queue = [];
-}
-
-sys.inherits(Database, sqlite.Database);
+  this.db = new sqlite.Database();
+};
 
 Database.prototype.dispatch = function () {
+  puts('dispatching');
   if (!this.queue || this.currentQuery
-                  || this.queue.length > 0) {
+                  || !this.queue.length) {
+    puts("no queries\n" + inspect([this.queue, this.currentQuery]));
     return;
   }
   this.currentQuery = this.queue.shift();
-  this.executeQuery.apply(this, this.currentQuery[0]);
+  puts("current query\n" + inspect(this.currentQuery));
+  this.executeQuery.apply(this, this.currentQuery);
+}
+
+Database.prototype.open = function () {
+  this.db.open.apply(this.db, arguments);
+}
+
+Database.prototype.close = function () {
+  this.db.close.apply(this.db, arguments);
+}
+
+Database.prototype.prepare = function () {
+  this.db.prepare.apply(this.db, arguments);
 }
 
 Database.prototype.query = function (sql, bindings, queryCallback) {
@@ -49,8 +64,8 @@ Database.prototype.executeQuery = function(sql, bindings, queryCallback) {
 
   if (typeof(bindings) == "function") {
     var tmp = bindings;
-    bindings = callback;
-    callback = tmp;
+    bindings = queryCallback;
+    queryCallback = tmp;
   }
 
   // Iterate over the list of bindings. Since we can't use something as
@@ -81,9 +96,10 @@ Database.prototype.executeQuery = function(sql, bindings, queryCallback) {
     if (statement.tail) {
       puts("omg it has a tail");
       statement.finalize(function () {
-        self.prepare(statement.tail, onPrepare);
+        self.db.prepare(statement.tail, onPrepare);
       });
     }
+    self.db.emit("ready");
     queryCallback(undefined, rows);
   }
 
@@ -120,7 +136,8 @@ Database.prototype.executeQuery = function(sql, bindings, queryCallback) {
     }
   }
 
-  this.prepare(sql, onPrepare);
+  puts("preparing");
+  this.db.prepare(sql, onPrepare);
 }
 
 function SQLTransactionSync(db, txCallback, errCallback, successCallback) {
