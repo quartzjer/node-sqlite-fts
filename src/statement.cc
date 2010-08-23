@@ -16,6 +16,8 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <string.h>
 
+#include <mpool.h>
+
 #include "database.h"
 #include "statement.h"
 #include "sqlite3_bindings.h"
@@ -41,6 +43,7 @@ void Statement::Init(v8::Handle<Object> target) {
   NODE_SET_PROTOTYPE_METHOD(t, "reset", Reset);
   NODE_SET_PROTOTYPE_METHOD(t, "clearBindings", ClearBindings);
   NODE_SET_PROTOTYPE_METHOD(t, "step", Step);
+  NODE_SET_PROTOTYPE_METHOD(t, "fetchAll", FetchAll);
 
   callback_sym = Persistent<String>::New(String::New("callback"));
 }
@@ -686,6 +689,26 @@ int Statement::EIO_Step(eio_req *req) {
   }
 
   return 0;
+}
+
+Handle<Value> Statement::FetchAll(const Arguments& args) {
+  HandleScope scope;
+
+  Statement* sto = ObjectWrap::Unwrap<Statement>(args.This());
+
+  if (sto->HasCallback()) {
+    return ThrowException(Exception::Error(String::New("Already stepping")));
+  }
+
+  REQ_FUN_ARG(0, cb);
+
+  sto->SetCallback(cb);
+
+  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterStep, sto);
+
+  ev_ref(EV_DEFAULT_UC);
+
+  return Undefined();
 }
 
 Handle<Value> Statement::Step(const Arguments& args) {
