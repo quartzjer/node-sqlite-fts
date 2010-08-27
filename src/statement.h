@@ -68,6 +68,8 @@ class Statement : public EventEmitter {
     static int EIO_Step(eio_req *req);
     static Handle<Value> Step(const Arguments &args);
 
+    static int EIO_AfterFetchAll(eio_req *req);
+    static int EIO_FetchAll(eio_req *req);
     static Handle<Value> FetchAll(const Arguments &args);
 
     void FreeColumnData(void);

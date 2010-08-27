@@ -691,6 +691,65 @@ int Statement::EIO_Step(eio_req *req) {
   return 0;
 }
 
+struct row_node {
+  void **cells;
+  result_node *next;
+};
+
+struct fetchall_request {
+  Persistent<Function> cb;
+  Statement *sto;
+  mpool *pool;
+}
+
+int Statement::EIO_FetchAll(eio_req *req) {
+  struct fetchall_request *fetchall_req
+    = (struct fetchall_request *)(req->data);
+
+  sqlite3_stmt *stmt = fetchall_req->sto->stmt_;
+  assert(stmt);
+  int rc;
+  int ret;
+
+  /* open the pool */
+  pool = mpool_open(0, 0, NULL, &ret);
+  if (pool == NULL) {
+    fprintf(stderr, "Error in mpool_open: %s\n", mpool_strerror(ret));
+    exit(1);
+  }
+
+
+  row_node *head;
+
+  // create a memory pool
+  // create a linked list of rows
+  // fetch a row
+  // if row is valid, add to linked list
+  // abort fetching if row indicates no more results
+
+  while (true) {
+    rc = req->result = sqlite3_step(stmt);
+  
+    if (rc == SQLITE_DONE) {
+      break;
+    }
+
+  }
+
+  // check if we have already taken a step immediately after prepare
+  if (sto->first_rc_ != -1) {
+    // This is the first one! Let's just use the rc from when we called
+    // it in EIO_Prepare
+    rc = req->result = sto->first_rc_;
+    // Now we set first_rc_ to -1 so that on the next step, it won't
+    // think this is the first.
+    sto->first_rc_ = -1;
+  }
+  else {
+    rc = req->result = sqlite3_step(stmt);
+  }
+}
+
 Handle<Value> Statement::FetchAll(const Arguments& args) {
   HandleScope scope;
 
@@ -704,7 +763,7 @@ Handle<Value> Statement::FetchAll(const Arguments& args) {
 
   sto->SetCallback(cb);
 
-  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterStep, sto);
+  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterFetchAll, sto);
 
   ev_ref(EV_DEFAULT_UC);
 
