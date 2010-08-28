@@ -7,7 +7,7 @@ OBJS	= mpool.o
 
 CC	= cc
 
-CFLAGS	= -g -I. $(DEFINES)
+CFLAGS	= -g -I. $(DEFINES) -fPIC
 #CFLAGS	= -g -I.
 LDFLAGS	=
 RANLIB	= ranlib

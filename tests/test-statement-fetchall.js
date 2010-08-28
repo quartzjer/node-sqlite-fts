@@ -30,10 +30,12 @@ var tests = [
       self.db.open(':memory:', function (error) {
         function selectStatementPrepared(error, statement) {
           if (error) throw error;
+          console.log("Fetchalling");
           statement.fetchAll(function (error, rows) {
+            puts("Fetched");
             if (error) throw error;
             puts(inspect(arguments));
-            assert.equal(rows.length, 10, "Last inserted id should be 10");
+            assert.equal(rows.length, 10, "There should be 10 rows");
 
             finished();
           });
@@ -58,11 +60,10 @@ var tests = [
             }
 
             var selectSQL
-                = 'UPDATE table1 SET name="o hai"';
+                = 'SELECT * from table1';
 
             insertRows(self.db, 10, function () {
               self.db.prepare(selectSQL
-                              , { affectedRows: true }
                               , selectStatementPrepared);
             });
           });

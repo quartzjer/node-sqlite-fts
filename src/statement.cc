@@ -16,7 +16,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <string.h>
 
+extern "C" {
 #include <mpool.h>
+};
 
 #include "database.h"
 #include "statement.h"
@@ -693,13 +695,47 @@ int Statement::EIO_Step(eio_req *req) {
 
 struct row_node {
   void **cells;
-  result_node *next;
+  row_node *next;
 };
 
 struct fetchall_request {
   Persistent<Function> cb;
   Statement *sto;
-  mpool *pool;
+  mpool_t *pool;
+  row_node *list;
+};
+
+int Statement::EIO_AfterFetchAll(eio_req *req) {
+  HandleScope scope;
+  ev_unref(EV_DEFAULT_UC);
+  struct fetchall_request *fetchall_req
+    = (struct fetchall_request *)(req->data);
+
+  row_node *row = fetchall_req->list;
+
+  while (row) {
+    printf("Retrieved one row\n");
+    row = row->next;
+  }
+
+  Local<Value> argv[1];
+  int err = 0;
+  if (req->result) {
+    err++;
+    argv[0] = Exception::Error(String::New("Error fetching results"));
+  }
+
+  TryCatch try_catch;
+
+  fetchall_req->cb->Call(Context::GetCurrent()->Global(), err, argv);
+
+  if (try_catch.HasCaught()) {
+    FatalException(try_catch);
+  }
+
+  fetchall_req->cb.Dispose();
+
+  return 0;
 }
 
 int Statement::EIO_FetchAll(eio_req *req) {
@@ -712,14 +748,16 @@ int Statement::EIO_FetchAll(eio_req *req) {
   int ret;
 
   /* open the pool */
-  pool = mpool_open(0, 0, NULL, &ret);
-  if (pool == NULL) {
+  fetchall_req->pool = mpool_open(0, 0, NULL, &ret);
+  if (fetchall_req->pool == NULL) {
     fprintf(stderr, "Error in mpool_open: %s\n", mpool_strerror(ret));
-    exit(1);
   }
 
+  printf("created a pool ok\n");
 
-  row_node *head;
+  struct row_node *cur = NULL
+                , *prev = NULL
+                , *head = NULL;
 
   // create a memory pool
   // create a linked list of rows
@@ -727,44 +765,49 @@ int Statement::EIO_FetchAll(eio_req *req) {
   // if row is valid, add to linked list
   // abort fetching if row indicates no more results
 
-  while (true) {
+  while (1) {
     rc = req->result = sqlite3_step(stmt);
   
     if (rc == SQLITE_DONE) {
+      printf("Done!\n");
       break;
     }
 
+    if (!head) {
+      cur = head = (struct row_node *) calloc(1, sizeof(struct row_node));
+    }
+    else {
+      cur = (struct row_node *) calloc(1, sizeof(struct row_node));
+      cur->next = NULL;
+      prev->next = cur;
+    }
+    
+    prev = cur;
+    printf("It was a row!\n");
   }
-
-  // check if we have already taken a step immediately after prepare
-  if (sto->first_rc_ != -1) {
-    // This is the first one! Let's just use the rc from when we called
-    // it in EIO_Prepare
-    rc = req->result = sto->first_rc_;
-    // Now we set first_rc_ to -1 so that on the next step, it won't
-    // think this is the first.
-    sto->first_rc_ = -1;
-  }
-  else {
-    rc = req->result = sqlite3_step(stmt);
-  }
+  req->result = 0;
+  
+  return 0;
 }
 
 Handle<Value> Statement::FetchAll(const Arguments& args) {
   HandleScope scope;
 
-  Statement* sto = ObjectWrap::Unwrap<Statement>(args.This());
-
-  if (sto->HasCallback()) {
-    return ThrowException(Exception::Error(String::New("Already stepping")));
-  }
-
   REQ_FUN_ARG(0, cb);
 
-  sto->SetCallback(cb);
+  struct fetchall_request *fetchall_req = (struct fetchall_request *)
+      calloc(1, sizeof(struct fetchall_request));
 
-  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterFetchAll, sto);
+  if (!fetchall_req) {
+    V8::LowMemoryNotification();
+    return ThrowException(Exception::Error(
+          String::New("Could not allocate enough memory")));
+  }
 
+  fetchall_req->sto = ObjectWrap::Unwrap<Statement>(args.This());
+  fetchall_req->cb = Persistent<Function>::New(cb);
+
+  eio_custom(EIO_FetchAll, EIO_PRI_DEFAULT, EIO_AfterFetchAll, fetchall_req);
   ev_ref(EV_DEFAULT_UC);
 
   return Undefined();
