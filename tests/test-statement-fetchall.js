@@ -12,7 +12,7 @@ var name = "Caching of affectedRows";
 var suite = exports[name] = new TestSuite(name);
 
 function createTestTable(db, callback) {
-  db.prepare('CREATE TABLE table1 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)',
+  db.prepare('CREATE TABLE table1 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age FLOAT)',
     function (error, createStatement) {
       if (error) throw error;
       createStatement.step(function (error, row) {
@@ -37,6 +37,11 @@ var tests = [
             puts(inspect(arguments));
             assert.equal(rows.length, 10, "There should be 10 rows");
 
+            rows.forEach(function (i) {
+              assert.equal(i.name, 'jonny boy');
+              assert.equal(i.age, 23.5);
+            });
+
             self.db.close(function () {
               finished();
             });
@@ -47,7 +52,7 @@ var tests = [
           function () {
             function insertRows(db, count, callback) {
               var i = count;
-              db.prepare('INSERT INTO table1 (name) VALUES ("oh boy")',
+              db.prepare('INSERT INTO table1 (name, age) VALUES ("jonny boy", 23.5)',
                 function (error, statement) {
                   statement.step(function (error, row) {
                     if (error) throw error;
@@ -66,7 +71,7 @@ var tests = [
 
             insertRows(self.db, 10, function () {
               self.db.prepare(selectSQL
-                              , selectStatementPrepared);
+                            , selectStatementPrepared);
             });
           });
       });
