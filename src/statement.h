@@ -72,6 +72,7 @@ class Statement : public EventEmitter {
     static int EIO_FetchAll(eio_req *req);
     static Handle<Value> FetchAll(const Arguments &args);
 
+    void InitializeColumns(void);
     void FreeColumnData(void);
 
     bool HasCallback();

@@ -575,6 +575,46 @@ void Statement::FreeColumnData(void) {
   column_data_ = NULL;
 }
 
+void Statement::InitializeColumns(void) {
+  this->column_count_ = sqlite3_column_count(this->stmt_);
+  assert(this->column_count_);
+  this->column_types_ = (int *) calloc(this->column_count_, sizeof(int));
+  this->column_names_ = (char **) calloc(this->column_count_,
+                                        sizeof(char *));
+
+  if (this->column_count_) {
+    this->column_data_ = (void **) calloc(this->column_count_,
+                                         sizeof(void *));
+  }
+
+  for (int i = 0; i < this->column_count_; i++) {
+    this->column_types_[i] = sqlite3_column_type(this->stmt_, i);
+
+    // Don't free this!
+    this->column_names_[i] = (char *) sqlite3_column_name(this->stmt_, i);
+
+    switch(this->column_types_[i]) {
+      case SQLITE_INTEGER:
+        this->column_data_[i] = (int *) malloc(sizeof(int));
+        break;
+
+      case SQLITE_FLOAT:
+        this->column_data_[i] = (double *) malloc(sizeof(double));
+        break;
+
+      case SQLITE_NULL:
+        this->column_data_[i] = NULL;
+        break;
+
+      // no need to allocate memory for strings
+
+      default: {
+        // unsupported type
+      }
+    }
+  }
+}
+
 int Statement::EIO_Step(eio_req *req) {
   Statement *sto = (class Statement *)(req->data);
   sqlite3_stmt *stmt = sto->stmt_;
@@ -602,43 +642,7 @@ int Statement::EIO_Step(eio_req *req) {
     // Otherwise that means we have already looked up the column types and
     // names so we can simply re-use that info.
     if (!sto->column_types_ && !sto->column_names_) {
-      sto->column_count_ = sqlite3_column_count(stmt);
-      assert(sto->column_count_);
-      sto->column_types_ = (int *) calloc(sto->column_count_, sizeof(int));
-      sto->column_names_ = (char **) calloc(sto->column_count_,
-                                            sizeof(char *));
-
-      if (sto->column_count_) {
-        sto->column_data_ = (void **) calloc(sto->column_count_,
-                                             sizeof(void *));
-      }
-
-      for (int i = 0; i < sto->column_count_; i++) {
-        sto->column_types_[i] = sqlite3_column_type(stmt, i);
-
-        // Don't free this!
-        sto->column_names_[i] = (char *) sqlite3_column_name(stmt, i);
-
-        switch (sto->column_types_[i]) {
-          case SQLITE_INTEGER:
-            sto->column_data_[i] = (int *) malloc(sizeof(int));
-            break;
-
-          case SQLITE_FLOAT:
-            sto->column_data_[i] = (double *) malloc(sizeof(double));
-            break;
-
-          case SQLITE_NULL:
-            sto->column_data_[i] = NULL;
-            break;
-
-          // no need to allocate memory for strings
-
-          default: {
-            // unsupported type
-          }
-        }
-      }
+      sto->InitializeColumns();
     }
 
     assert(sto->column_types_ && sto->column_data_ && sto->column_names_);
@@ -693,6 +697,27 @@ int Statement::EIO_Step(eio_req *req) {
   return 0;
 }
 
+Handle<Value> Statement::Step(const Arguments& args) {
+  HandleScope scope;
+
+  Statement* sto = ObjectWrap::Unwrap<Statement>(args.This());
+
+  if (sto->HasCallback()) {
+    return ThrowException(Exception::Error(String::New("Already stepping")));
+  }
+
+  REQ_FUN_ARG(0, cb);
+
+  sto->SetCallback(cb);
+
+  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterStep, sto);
+
+  ev_ref(EV_DEFAULT_UC);
+
+  return Undefined();
+}
+
+
 struct row_node {
   void **cells;
   row_node *next;
@@ -706,34 +731,99 @@ struct fetchall_request {
 };
 
 int Statement::EIO_AfterFetchAll(eio_req *req) {
-  HandleScope scope;
   ev_unref(EV_DEFAULT_UC);
+  HandleScope scope;
   struct fetchall_request *fetchall_req
     = (struct fetchall_request *)(req->data);
+  Statement *sto = fetchall_req->sto;
 
-  row_node *row = fetchall_req->list;
+  row_node *cur = fetchall_req->list;
 
-  while (row) {
-    printf("Retrieved one row\n");
-    row = row->next;
+  Local<Value> argv[2];
+
+//   if (sto->error_) {
+//     argv[0] = Exception::Error(
+//         String::New(sqlite3_errmsg(db)));
+//   }
+//   else {
+//     argv[0] = Local<Value>::New(Undefined());
+//   }
+
+//   if (req->result == SQLITE_DONE) {
+//     argv[1] = Local<Value>::New(Null());
+    argv[0] = Local<Value>::New(Null());
+//   }
+
+  int row_count = 0;
+  Persistent<Array> results = Persistent<Array>::New(Array::New());
+  for (; cur; row_count++, cur=cur->next) {
+    Local<Object> row = Object::New();
+
+    for (int i = 0; i < sto->column_count_; i++) {
+      assert(cur->cells);
+      if (((int*)sto->column_types_)[i] != SQLITE_NULL) {
+        assert(((void**)cur->cells)[i]);
+      }
+      assert(sto->column_names_[i]);
+      assert(sto->column_types_[i]);
+
+      switch (sto->column_types_[i]) {
+        case SQLITE_INTEGER:
+          row->Set(String::NewSymbol((char*) sto->column_names_[i]),
+                   Int32::New(*(int*) (cur->cells[i])));
+          mpool_free(fetchall_req->pool, cur->cells[i], sizeof(int));
+          break;
+
+        case SQLITE_FLOAT:
+          row->Set(String::NewSymbol(sto->column_names_[i]),
+                   Number::New(*(double*) (cur->cells[i])));
+          mpool_free(fetchall_req->pool, cur->cells[i], sizeof(double));
+          break;
+
+        case SQLITE_TEXT:
+          // XXX TODO use explicit string length instead of null terminated
+          assert(strlen((char*) cur->cells[i]));
+          row->Set(String::NewSymbol(sto->column_names_[i]),
+                   String::New((char *) (cur->cells[i])));
+          // don't free this pointer, it's owned by sqlite3
+          break;
+
+        case SQLITE_NULL:
+          row->Set(String::New(sto->column_names_[i]),
+              Local<Value>::New(Null()));
+          break;
+
+        // no default
+      }
+    }
+
+    results->Set(Integer::New(row_count), row);
+  }
+  argv[1] = Local<Value>::New(results);
+
+  int ret;
+  ret = mpool_close(fetchall_req->pool);
+  if (ret != MPOOL_ERROR_NONE) {
+    fprintf(stderr, "Error in mpool_close: %s\n", mpool_strerror(ret));
+//     exit(1);
   }
 
-  Local<Value> argv[1];
-  int err = 0;
   if (req->result) {
-    err++;
     argv[0] = Exception::Error(String::New("Error fetching results"));
   }
 
   TryCatch try_catch;
 
-  fetchall_req->cb->Call(Context::GetCurrent()->Global(), err, argv);
+  fetchall_req->cb->Call(Context::GetCurrent()->Global(), 2, argv);
 
   if (try_catch.HasCaught()) {
     FatalException(try_catch);
   }
 
   fetchall_req->cb.Dispose();
+
+  sto->FreeColumnData();
+  free(fetchall_req);
 
   return 0;
 }
@@ -742,7 +832,8 @@ int Statement::EIO_FetchAll(eio_req *req) {
   struct fetchall_request *fetchall_req
     = (struct fetchall_request *)(req->data);
 
-  sqlite3_stmt *stmt = fetchall_req->sto->stmt_;
+  Statement *sto = fetchall_req->sto;
+  sqlite3_stmt *stmt = sto->stmt_;
   assert(stmt);
   int rc;
   int ret;
@@ -753,14 +844,12 @@ int Statement::EIO_FetchAll(eio_req *req) {
     fprintf(stderr, "Error in mpool_open: %s\n", mpool_strerror(ret));
   }
 
-  printf("created a pool ok\n");
-
   struct row_node *cur = NULL
                 , *prev = NULL
                 , *head = NULL;
 
   // create a memory pool
-  // create a linked list of rows
+  // create a linked list of rows (and linked list of cells?)
   // fetch a row
   // if row is valid, add to linked list
   // abort fetching if row indicates no more results
@@ -768,25 +857,90 @@ int Statement::EIO_FetchAll(eio_req *req) {
   while (1) {
     rc = req->result = sqlite3_step(stmt);
   
+    if (!sto->column_types_ && !sto->column_names_) {
+      sto->InitializeColumns();
+    }
+
     if (rc == SQLITE_DONE) {
       printf("Done!\n");
       break;
     }
 
     if (!head) {
-      cur = head = (struct row_node *) calloc(1, sizeof(struct row_node));
+      int ret;
+      cur = head = (struct row_node *) mpool_calloc(fetchall_req->pool
+                                                  , 1
+                                                  , sizeof(struct row_node)
+                                                  , &ret);
     }
     else {
-      cur = (struct row_node *) calloc(1, sizeof(struct row_node));
+      cur = (struct row_node *) mpool_calloc(fetchall_req->pool
+                                           , 1
+                                           , sizeof(struct row_node)
+                                           , &ret);
       cur->next = NULL;
       prev->next = cur;
     }
+
+    if (sto->column_count_) {
+      cur->cells = (void **) mpool_calloc(fetchall_req->pool
+                                        , sto->column_count_
+                                        , sizeof(void *)
+                                        , &ret);
+    }
+
+    for (int i = 0; i < sto->column_count_; i++) {
+      int type = sto->column_types_[i];
+
+      switch(type) {
+        case SQLITE_INTEGER:
+          cur->cells[i] = (int*) mpool_calloc(fetchall_req->pool
+                                             , 1
+                                             , sizeof(int)
+                                             , &ret);
+          *(int*)(cur->cells[i]) = sqlite3_column_int(stmt, i);
+          assert(cur->cells[i]);
+          break;
+
+        case SQLITE_FLOAT:
+          cur->cells[i] = (int*) mpool_calloc(fetchall_req->pool
+                                             , 1
+                                             , sizeof(int)
+                                             , &ret);
+          *(double*)(cur->cells[i]) = sqlite3_column_double(stmt, i);
+          break;
+
+        case SQLITE_TEXT: {
+            char *text = (char *) sqlite3_column_text(stmt, i);
+            int size = sqlite3_column_bytes(stmt, i) + 1;
+            cur->cells[i] = (char*) mpool_calloc(fetchall_req->pool
+                                               , 1
+                                               , size
+                                               , &ret);
+            memcpy(cur->cells[i], text, size+1);
+          }
+          break;
+
+        case SQLITE_NULL:
+          cur->cells[i] = NULL;
+          break;
+
+        default: {
+          assert(0 && "unsupported type");
+        }
+      }
+      if (sto->column_types_[i] != SQLITE_NULL)
+        assert(cur->cells[i]);
+      assert(sto->column_names_[i]);
+      assert(sto->column_types_[i]);
+    }
     
     prev = cur;
-    printf("It was a row!\n");
   }
+
   req->result = 0;
-  
+  fetchall_req->list = head;
+
   return 0;
 }
 
@@ -808,26 +962,6 @@ Handle<Value> Statement::FetchAll(const Arguments& args) {
   fetchall_req->cb = Persistent<Function>::New(cb);
 
   eio_custom(EIO_FetchAll, EIO_PRI_DEFAULT, EIO_AfterFetchAll, fetchall_req);
-  ev_ref(EV_DEFAULT_UC);
-
-  return Undefined();
-}
-
-Handle<Value> Statement::Step(const Arguments& args) {
-  HandleScope scope;
-
-  Statement* sto = ObjectWrap::Unwrap<Statement>(args.This());
-
-  if (sto->HasCallback()) {
-    return ThrowException(Exception::Error(String::New("Already stepping")));
-  }
-
-  REQ_FUN_ARG(0, cb);
-
-  sto->SetCallback(cb);
-
-  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterStep, sto);
-
   ev_ref(EV_DEFAULT_UC);
 
   return Undefined();

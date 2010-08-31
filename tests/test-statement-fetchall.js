@@ -37,7 +37,9 @@ var tests = [
             puts(inspect(arguments));
             assert.equal(rows.length, 10, "There should be 10 rows");
 
-            finished();
+            self.db.close(function () {
+              finished();
+            });
           });
         }
 
