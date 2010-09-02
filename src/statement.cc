@@ -86,15 +86,23 @@ int Statement::EIO_AfterBindArray(eio_req *req) {
 
   bind_req->cb.Dispose();
 
-  if (bind_req->len) {
-    free(bind_req->pairs->key);
-    free(bind_req->pairs->value);
-  }
+  struct bind_pair *pair = bind_req->pairs;
 
+  for (size_t i = 0; i < bind_req->len; i++, pair++) {
+    free((char*)(pair->key));
+    switch(pair->key_type) {
+      case KEY_INT:
+        free((int*)(pair->value));
+        break;
+
+      case KEY_STRING:
+        free((char*)(pair->value));
+        break;
+    }
+  }
   free(bind_req->pairs);
   free(bind_req);
 
-  return 0;
   return 0;
 }
 
