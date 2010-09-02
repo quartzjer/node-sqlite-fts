@@ -858,7 +858,10 @@ int Statement::EIO_FetchAll(eio_req *req) {
   int ret;
 
   /* open the pool */
-  fetchall_req->pool = mpool_open(0, 0, NULL, &ret);
+  fetchall_req->pool = mpool_open(MPOOL_FLAG_USE_MAP_ANON
+                                , 0
+                                , NULL
+                                , &ret);
   if (fetchall_req->pool == NULL) {
     fprintf(stderr, "Error in mpool_open: %s\n", mpool_strerror(ret));
   }
