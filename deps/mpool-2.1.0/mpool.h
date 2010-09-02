@@ -26,6 +26,7 @@
 
 #include <sys/types.h>
 
+
 /*
  * mpool flags to mpool_alloc or mpool_set_attr
  */
@@ -65,6 +66,12 @@
  * normal use.
  */
 #define MPOOL_FLAG_USE_SBRK		(1<<3)
+
+/*
+ * Use MAP_ANON(YMOUS) instead of /dev/zero for mmap.
+ */
+
+#define MPOOL_FLAG_USE_MAP_ANON         (1<<4)
 
 /*
  * Mpool error codes

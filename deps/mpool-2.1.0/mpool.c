@@ -271,6 +271,14 @@ static	void	*alloc_pages(mpool_t *mp_p, const unsigned int page_n,
 #ifdef MAP_VARIABLE
     state |= MAP_VARIABLE;
 #endif
+
+    if (BIT_IS_SET(mp_p->mp_flags, MPOOL_FLAG_USE_MAP_ANON)) {
+#ifdef MAP_ANON
+      state |= MAP_ANON;
+#elif defined MAP_ANONYMOUS
+      state |= MAP_ANONYMOUS;
+#endif
+    }
     
     /* mmap from /dev/zero */
     mem = mmap((caddr_t)mp_p->mp_addr, size, PROT_READ | PROT_WRITE, state,
@@ -940,6 +948,11 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
   if (BIT_IS_SET(flags, MPOOL_FLAG_USE_SBRK)) {
     mp.mp_fd = -1;
     mp.mp_addr = NULL;
+    mp.mp_top = 0;
+  }
+  else if (BIT_IS_SET(flags, MPOOL_FLAG_USE_MAP_ANON)) {
+    mp.mp_fd = -1;
+    mp.mp_addr = start_addr;
     mp.mp_top = 0;
   }
   else {
