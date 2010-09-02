@@ -37,11 +37,10 @@ var tests = [
             puts("Fetched");
             if (error) throw error;
             puts(inspect(arguments));
-//             assert.equal(rows.length, rowCount, "There should be 10 rows");
+            assert.equal(rows.length, rowCount, "There should be "+rowCount+" rows");
 
             rows.forEach(function (i) {
-//               assert.equal(i.name, 'jonny boy');
-//               assert.equal(i.age, 23.5);
+              assert.equal(i.name, 'jonny boy');
             });
 
             self.db.close(function () {

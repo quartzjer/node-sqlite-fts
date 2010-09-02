@@ -875,7 +875,7 @@ int Statement::EIO_FetchAll(eio_req *req) {
 
   while (1) {
     rc = req->result = sqlite3_step(stmt);
-  
+
     if (!sto->column_types_ && !sto->column_names_) {
       sto->InitializeColumns();
     }
@@ -966,7 +966,7 @@ int Statement::EIO_FetchAll(eio_req *req) {
     }
 
     cur->cells = cell_head;
-    
+
     prev = cur;
   }
 
