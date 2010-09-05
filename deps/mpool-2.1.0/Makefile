@@ -5,7 +5,7 @@
 HFLS	= mpool.h
 OBJS	= mpool.o
 
-CC	= cc
+CC	= gcc
 
 CFLAGS	= -g -I. $(DEFINES) -fPIC
 #CFLAGS	= -g -I.
