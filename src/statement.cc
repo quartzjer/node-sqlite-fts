@@ -877,7 +877,6 @@ int Statement::EIO_FetchAll(eio_req *req) {
     int rc = sqlite3_step(stmt);
 
     if (rc == SQLITE_DONE) {
-      printf("Done!\n");
       break;
     }
 

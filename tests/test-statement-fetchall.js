@@ -12,7 +12,7 @@ var name = "Fetching all results";
 var suite = exports[name] = new TestSuite(name);
 
 function createTestTable(db, callback) {
-  db.prepare('CREATE TABLE table1 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age FLOAT)',
+  db.prepare('CREATE TABLE table1 (id INTEGER, name TEXT, age FLOAT)',
     function (error, createStatement) {
       if (error) throw error;
       createStatement.step(function (error, row) {
@@ -22,7 +22,19 @@ function createTestTable(db, callback) {
     });
 }
 
-rowCount = 5;
+var testRows = [ [ 1, "foo",  9 ]
+               , [ 2, "bar",  8 ]
+               , [ 3, "baz",  7 ]
+               , [ 4, "quux", 6 ]
+               , [ 5, "juju", 5 ]
+               ];
+
+var testRowsExpected = [ { id: 5, name: 'juju', age: 5 }
+                       , { id: 4, name: 'quux', age: 6 }
+                       , { id: 3, name: 'baz', age: 7 }
+                       , { id: 2, name: 'bar', age: 8 }
+                       , { id: 1, name: 'foo', age: 9 }
+                       ];
 
 var tests = [
   { 'insert a row with lastinsertedid':
@@ -32,16 +44,10 @@ var tests = [
       self.db.open(':memory:', function (error) {
         function selectStatementPrepared(error, statement) {
           if (error) throw error;
-          console.log("Fetchalling");
           statement.fetchAll(function (error, rows) {
-            puts("Fetched");
             if (error) throw error;
-            puts(inspect(arguments));
-            assert.equal(rows.length, rowCount, "There should be "+rowCount+" rows");
 
-            rows.forEach(function (i) {
-              assert.equal(i.name, 'jonny boy');
-            });
+            assert.deepEqual(testRowsExpected, rows);
 
             self.db.close(function () {
               finished();
@@ -51,31 +57,36 @@ var tests = [
 
         createTestTable(self.db,
           function () {
-            function insertRows(db, count, callback) {
-              var i = count;
-              db.prepare('INSERT INTO table1 (name, age) VALUES (?, ?)',
+            function insertRows(db, rows, callback) {
+              var i = rows.length;
+              db.prepare('INSERT INTO table1 (id, name, age) VALUES (?, ?, ?)',
                 function (error, statement) {
-                  statement.bindArray(["jonny boy", i--], function () {
-                    statement.step(function (error, row) {
-                      var shazbot = arguments.callee;
-                      if (error) throw error;
-                      assert.ok(!row, "Row should be unset");
-                      statement.reset();
-                      statement.bindArray(["jonny boy", i], function () {
-                        if (i--)
-                          statement.step(shazbot);
-                        else
-                          callback();
+                  function doStep(i) {
+                    statement.bindArray(rows[i], function () {
+                      statement.step(function (error, row) {
+                        if (error) throw error;
+                        assert.ok(!row, "Row should be unset");
+                        statement.reset();
+                        if (i) {
+                          doStep(--i);
+                        }
+                        else {
+                          statement.finalize(function () {
+                            callback();
+                          });
+                        }
                       });
                     });
-                  });
+                  }
+
+                  doStep(--i);
                 });
             }
 
             var selectSQL
                 = 'SELECT * from table1';
 
-            insertRows(self.db, rowCount, function () {
+            insertRows(self.db, testRows, function () {
               self.db.prepare(selectSQL
                             , selectStatementPrepared);
             });
