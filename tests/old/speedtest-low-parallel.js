@@ -41,10 +41,10 @@ function getRowsFetchAll() {
     t0 = new Date();
 
     statement.fetchAll(function (error, rows) {
-        d = ((new Date)-t0)/1000;
-        puts("**** " + d + "s to fetchAll " + rows.length + " rows (" + (rows.length/d) + "/s)");
-        statement.finalize(function () { db.close(function () {}); });
-        return;
+      d = ((new Date)-t0)/1000;
+      puts("**** " + d + "s to fetchAll " + rows.length + " rows (" + (rows.length/d) + "/s)");
+      statement.finalize(function () { db.close(function () {}); });
+      return;
     });
   });
 }

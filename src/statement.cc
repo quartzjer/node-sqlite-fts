@@ -783,7 +783,7 @@ int Statement::EIO_AfterFetchAll(eio_req *req) {
       // walk down the list
       for (int i = 0; cell; i++, cell=cell->next) {
         assert(cell);
-        if (((int*)sto->column_types_)[i] != SQLITE_NULL) {
+        if (cell->type != SQLITE_NULL) {
           assert((void*)cell->value);
         }
         assert(sto->column_names_[i]);
@@ -792,13 +792,11 @@ int Statement::EIO_AfterFetchAll(eio_req *req) {
           case SQLITE_INTEGER:
             row->Set(String::NewSymbol((char*) sto->column_names_[i]),
                      Int32::New(*(int*) (cell->value)));
-            mpool_free(fetchall_req->pool, cell->value, sizeof(int));
             break;
 
           case SQLITE_FLOAT:
             row->Set(String::NewSymbol(sto->column_names_[i]),
                      Number::New(*(double*) (cell->value)));
-            mpool_free(fetchall_req->pool, cell->value, sizeof(double));
             break;
 
           case SQLITE_TEXT: {
@@ -807,7 +805,6 @@ int Statement::EIO_AfterFetchAll(eio_req *req) {
               // str->bytes-1 to compensate for the NULL terminator
               row->Set(String::NewSymbol(sto->column_names_[i]),
                        String::New(str->data, str->bytes-1));
-              mpool_free(fetchall_req->pool, cell->value, sizeof(size_t) + str->bytes);
             }
             break;
 
@@ -824,6 +821,29 @@ int Statement::EIO_AfterFetchAll(eio_req *req) {
     argv[1] = Local<Value>::New(results);
   }
 
+//   unsigned int page_size_p;
+//   unsigned long num_alloced_p;
+//   unsigned long user_alloced_p;
+//   unsigned long max_alloced_p;
+//   unsigned long tot_alloced_p;
+//   mpool_stats(fetchall_req->pool,
+//           &page_size_p,
+//           &num_alloced_p,
+//           &user_alloced_p,
+//           &max_alloced_p,
+//           &tot_alloced_p);
+//   printf(
+//          "%u page size\n"
+//          "%lu num allocated\n"
+//          "%lu user allocated\n"
+//          "%lu max allocated\n"
+//          "%lu total allocated\n",
+//          page_size_p,
+//          num_alloced_p,
+//          user_alloced_p,
+//          max_alloced_p,
+//          tot_alloced_p
+//         );
   int ret = mpool_close(fetchall_req->pool);
   if (ret != MPOOL_ERROR_NONE) {
     req->result = -1;
@@ -884,8 +904,7 @@ int Statement::EIO_FetchAll(eio_req *req) {
       sto->InitializeColumns();
     }
 
-    cur = (struct row_node *) mpool_calloc(fetchall_req->pool
-                                         , 1
+    cur = (struct row_node *) mpool_alloc(fetchall_req->pool
                                          , sizeof(struct row_node)
                                          , &ret);
     cur->next = NULL;
@@ -902,8 +921,7 @@ int Statement::EIO_FetchAll(eio_req *req) {
                    , *cell      = NULL;
 
     for (int i = 0; i < sto->column_count_; i++) {
-      cell = (struct cell_node *) mpool_calloc(fetchall_req->pool
-                                             , 1
+      cell = (struct cell_node *) mpool_alloc(fetchall_req->pool
                                              , sizeof(struct cell_node)
                                              , &ret);
 
@@ -919,16 +937,14 @@ int Statement::EIO_FetchAll(eio_req *req) {
 
       switch (cell->type) {
         case SQLITE_INTEGER:
-          cell->value = (int *) mpool_calloc(fetchall_req->pool
-                                           , 1
+          cell->value = (int *) mpool_alloc(fetchall_req->pool
                                            , sizeof(int)
                                            , &ret);
           * (int *) cell->value = sqlite3_column_int(stmt, i);
           break;
 
         case SQLITE_FLOAT:
-          cell->value = (int *) mpool_calloc(fetchall_req->pool
-                                           , 1
+          cell->value = (int *) mpool_alloc(fetchall_req->pool
                                            , sizeof(int)
                                            , &ret);
           * (double *) cell->value = sqlite3_column_double(stmt, i);
@@ -938,8 +954,7 @@ int Statement::EIO_FetchAll(eio_req *req) {
             char *text = (char *) sqlite3_column_text(stmt, i);
             int size = 1+sqlite3_column_bytes(stmt, i);
             struct string_t *str = (struct string_t *)
-                                     mpool_calloc(fetchall_req->pool
-                                                , 1
+                                     mpool_alloc(fetchall_req->pool
                                                 , sizeof(size_t) + size-1
                                                 , &ret);
             str->bytes = size;
