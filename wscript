@@ -29,7 +29,8 @@ def build(bld):
   system("cd deps/mpool-2.1.0/; make");
 
   sqlite = bld.new_task_gen('cc', 'staticlib')
-  sqlite.ccflags = ["-g", "-fPIC", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall"]
+  sqlite.ccflags = ["-g", "-fPIC", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall", "-DSQLITE_ENABLE_FTS3", "-DSQLITE_ENABLE_FTS3_PARENTHESIS"]
+
   sqlite.source = '/'.join(['deps', SQLITE, 'sqlite3.c'])
   sqlite.target = '/'.join(['deps', SQLITE, 'sqlite3-bundled'])
   sqlite.name = "sqlite3"
