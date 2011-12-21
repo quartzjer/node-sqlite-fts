@@ -16,10 +16,6 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <string.h>
 
-extern "C" {
-  #include <mpool.h>
-};
-
 #include "database.h"
 #include "statement.h"
 #include "sqlite3_bindings.h"

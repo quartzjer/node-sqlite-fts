@@ -17,20 +17,19 @@ def configure(conf):
   conf.check_tool("compiler_cc")
   conf.check_tool("node_addon")
 
-  conf.env.append_value("LIBPATH_MPOOL", abspath("./deps/mpool-2.1.0/"))
-  conf.env.append_value("LIB_MPOOL",     "mpool")
-  conf.env.append_value("CPPPATH_MPOOL", abspath("./deps/mpool-2.1.0/"))
-
   conf.env.append_value('LIBPATH_SQLITE', abspath('build/default/deps/'+SQLITE))
   conf.env.append_value('STATICLIB_SQLITE', 'sqlite3-bundled')
   conf.env.append_value('CPATH_SQLITE', abspath('./deps/'+SQLITE))
 
 def build(bld):
-  system("cd deps/mpool-2.1.0/; make");
+  mpool = bld.new_task_gen('cc', 'staticlib')
+  mpool.ccflags = ["-g", "-fPIC", "-Wall"]
+  mpool.source = 'src/mpool.c'
+  mpool.target = 'mpool_bindings'
+  mpool.name = "mpool"
 
   sqlite = bld.new_task_gen('cc', 'staticlib')
   sqlite.ccflags = ["-g", "-fPIC", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall", "-DSQLITE_ENABLE_FTS3", "-DSQLITE_ENABLE_FTS3_PARENTHESIS"]
-
   sqlite.source = '/'.join(['deps', SQLITE, 'sqlite3.c'])
   sqlite.target = '/'.join(['deps', SQLITE, 'sqlite3-bundled'])
   sqlite.name = "sqlite3"
@@ -39,8 +38,7 @@ def build(bld):
   obj.cxxflags = ["-g", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall"]
   obj.target = "sqlite3_bindings"
   obj.source = "src/sqlite3_bindings.cc src/database.cc src/statement.cc"
-  obj.uselib = "MPOOL"
-  obj.uselib_local = "sqlite3"
+  obj.uselib_local = "sqlite3 mpool"
 
 t = 'sqlite3_bindings.node'
 def shutdown():
@@ -48,7 +46,6 @@ def shutdown():
   # better way to do this?
   if Options.commands['clean']:
     if exists(t): unlink(t)
-    system("cd deps/mpool-2.1.0/; make clean");
   else:
     if exists('build/default/' + t) and not exists(t):
       symlink('build/default/' + t, t)

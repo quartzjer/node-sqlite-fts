@@ -24,7 +24,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include <stdlib.h>
 
 extern "C" {
-  #include <mpool.h>
+  #include "mpool.h"
 };
 
 using namespace v8;
