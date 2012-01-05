@@ -35,10 +35,11 @@ def build(bld):
   sqlite.name = "sqlite3"
 
   obj = bld.new_task_gen("cxx", "shlib", "node_addon")
-  obj.cxxflags = ["-g", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall"]
+  obj.cxxflags = ["-g", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall", "-I../deps/sqlite"]
   obj.target = "sqlite3_bindings"
-  obj.source = "src/sqlite3_bindings.cc src/database.cc src/statement.cc"
-  obj.uselib_local = "sqlite3 mpool"
+  obj.source = "src/sqlite3_bindings.cc src/database.cc src/statement.cc src/events.cc"
+  obj.uselib = "MPOOL"
+  obj.uselib_local = "sqlite3"
 
 t = 'sqlite3_bindings.node'
 def shutdown():
