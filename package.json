@@ -1,7 +1,7 @@
 {
   "name": "sqlite-fts",
   "description": "SQLite3 bindings for Node with FTS4 enabled",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "homepage": "http://github.com/quartzjer/node-sqlite-fts",
   "author": "Jeremie Miller <jeremie@jabber.org>",
   "contributors": [
@@ -29,7 +29,7 @@
     }
   ],
   "dependencies": {
-    "extend":"1.0.0"
+    "extend": "1.0.0"
   },
   "devDependencies": {}
 }
