@@ -28,6 +28,8 @@
       "type": "BSD"
     }
   ],
-  "dependencies": {},
+  "dependencies": {
+    "extend":"1.0.0"
+  },
   "devDependencies": {}
 }
