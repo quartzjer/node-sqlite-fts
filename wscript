@@ -35,8 +35,7 @@ def build(bld):
   sqlite.name = "sqlite3"
 
   obj = bld.new_task_gen("cxx", "shlib", "node_addon")
-  obj.cxxflags = ["-g", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall", "-flat_namespace", "-I../deps/"+SQLITE]
-  obj.linkflags = ["-flat_namespace"]
+  obj.cxxflags = ["-g", "-D_FILE_OFFSET_BITS=64", "-D_LARGEFILE_SOURCE", "-Wall", "-I../deps/"+SQLITE]
   obj.target = "sqlite3_bindings"
   obj.source = "src/sqlite3_bindings.cc src/database.cc src/statement.cc src/events.cc"
   obj.uselib_local = ["sqlite3", "mpool"]
