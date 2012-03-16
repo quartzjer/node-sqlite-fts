@@ -36,8 +36,10 @@ class Database : public EventEmitter {
     Database() : EventEmitter(), db_(NULL) { }
 
     ~Database() {
-      assert(db_ == NULL);
-      printf("Destroying database\n");
+      if (db_) {
+        sqlite3_close(db_);
+        db_ = NULL;
+      }
     }
 
     static Handle<Value> New(const Arguments& args);
