@@ -1004,8 +1004,8 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
     if (ret != MPOOL_ERROR_NONE) {
 #ifndef _WIN32
       if (mp.mp_fd >= 0) {
-	(void)close(mp.mp_fd);
-	mp.mp_fd = -1;
+        (void)close(mp.mp_fd);
+        mp.mp_fd = -1;
       }
 #endif
       /* NOTE: after this line mp_p will be invalid */
