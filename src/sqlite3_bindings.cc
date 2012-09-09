@@ -16,12 +16,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <v8.h>
 #include <node.h>
-//#include <node_events.h>
 
 #include "sqlite3_bindings.h"
 #include "database.h"
 
-extern "C" void init (v8::Handle<Object> target) {
-  Database::Init(target);
+extern "C" {
+  void init (v8::Handle<Object> target) {
+    Database::Init(target);
+  }
+  NODE_MODULE(sqlite3_bindings, init);
 }
-

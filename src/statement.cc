@@ -19,6 +19,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "database.h"
 #include "statement.h"
 #include "sqlite3_bindings.h"
+#ifdef _WIN32
+# define MPOOL_FLAGS MPOOL_FLAG_USE_SBRK
+#else
+# define MPOOL_FLAGS 0
+#endif
 
 static Persistent<String> callback_sym;
 Persistent<FunctionTemplate> Statement::constructor_template;
@@ -59,15 +64,13 @@ Handle<Value> Statement::New(const Arguments& args) {
 }
 
 
-int Statement::EIO_AfterBindArray(eio_req *req) {
-  ev_unref(EV_DEFAULT_UC);
-
+void Statement::UVWORK_AfterBindArray(uv_work_t *req) {
   HandleScope scope;
   struct bind_request *bind_req = (struct bind_request *)(req->data);
 
   Local<Value> argv[1];
   bool err = false;
-  if (req->result) {
+  if (bind_req->result) {
     err = true;
     argv[0] = Exception::Error(String::New("Error binding parameter"));
   }
@@ -98,11 +101,10 @@ int Statement::EIO_AfterBindArray(eio_req *req) {
   }
   free(bind_req->pairs);
   free(bind_req);
-
-  return 0;
+  delete req;
 }
 
-void Statement::EIO_BindArray(eio_req *req) {
+void Statement::UVWORK_BindArray(uv_work_t *req) {
   struct bind_request *bind_req = (struct bind_request *)(req->data);
   Statement *sto = bind_req->sto;
   int rc(0);
@@ -127,7 +129,7 @@ void Statement::EIO_BindArray(eio_req *req) {
     }
 
     if (!index) {
-      req->result = SQLITE_MISMATCH;
+      bind_req->result = SQLITE_MISMATCH;
       return;
     }
 
@@ -152,7 +154,7 @@ void Statement::EIO_BindArray(eio_req *req) {
   }
 
   if (rc) {
-    req->result = rc;
+    bind_req->result = rc;
   }
 
 }
@@ -226,9 +228,10 @@ Handle<Value> Statement::BindObject(const Arguments& args) {
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
 
-  eio_custom(EIO_BindArray, EIO_PRI_DEFAULT, EIO_AfterBindArray, bind_req);
+  uv_work_t *req = new uv_work_t;
+  req->data = bind_req;
 
-  ev_ref(EV_DEFAULT_UC);
+  uv_queue_work(uv_default_loop(), req, UVWORK_BindArray, UVWORK_AfterBindArray);
 
   return Undefined();
 };
@@ -300,9 +303,10 @@ Handle<Value> Statement::BindArray(const Arguments& args) {
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
 
-  eio_custom(EIO_BindArray, EIO_PRI_DEFAULT, EIO_AfterBindArray, bind_req);
+  uv_work_t *req = new uv_work_t;
+  req->data = bind_req;
 
-  ev_ref(EV_DEFAULT_UC);
+  uv_queue_work(uv_default_loop(), req, UVWORK_BindArray, UVWORK_AfterBindArray);
 
   return Undefined();
 }
@@ -395,15 +399,15 @@ Handle<Value> Statement::Bind(const Arguments& args) {
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
 
-  eio_custom(EIO_BindArray, EIO_PRI_DEFAULT, EIO_AfterBindArray, bind_req);
+  uv_work_t *req = new uv_work_t;
+  req->data = bind_req;
 
-  ev_ref(EV_DEFAULT_UC);
+  uv_queue_work(uv_default_loop(), req, UVWORK_BindArray, UVWORK_AfterBindArray);
 
   return Undefined();
 }
 
-int Statement::EIO_AfterFinalize(eio_req *req) {
-  ev_unref(EV_DEFAULT_UC);
+void Statement::UVWORK_AfterFinalize(uv_work_t *req) {
   Statement *sto = (class Statement *)(req->data);
 
   HandleScope scope;
@@ -419,15 +423,14 @@ int Statement::EIO_AfterFinalize(eio_req *req) {
   }
 
   sto->Unref();
-
-  return 0;
+  delete req;
 }
 
-void Statement::EIO_Finalize(eio_req *req) {
+void Statement::UVWORK_Finalize(uv_work_t *req) {
   Statement *sto = (class Statement *)(req->data);
 
   assert(sto->stmt_);
-  req->result = sqlite3_finalize(sto->stmt_);
+  sto->result = sqlite3_finalize(sto->stmt_);
   sto->stmt_ = NULL;
 }
 
@@ -444,9 +447,10 @@ Handle<Value> Statement::Finalize(const Arguments& args) {
 
   sto->SetCallback(cb);
 
-  eio_custom(EIO_Finalize, EIO_PRI_DEFAULT, EIO_AfterFinalize, sto);
+  uv_work_t *req = new uv_work_t;
+  req->data = sto;
 
-  ev_ref(EV_DEFAULT_UC);
+  uv_queue_work(uv_default_loop(), req, UVWORK_Finalize, UVWORK_AfterFinalize);
 
   return Undefined();
 }
@@ -466,9 +470,7 @@ Handle<Value> Statement::Reset(const Arguments& args) {
   return Undefined();
 }
 
-int Statement::EIO_AfterStep(eio_req *req) {
-  ev_unref(EV_DEFAULT_UC);
-
+void Statement::UVWORK_AfterStep(uv_work_t *req) {
   HandleScope scope;
 
   Statement *sto = (class Statement *) req->data;
@@ -484,7 +486,7 @@ int Statement::EIO_AfterStep(eio_req *req) {
     argv[0] = Local<Value>::New(Undefined());
   }
 
-  if (req->result == SQLITE_DONE) {
+  if (sto->result == SQLITE_DONE) {
     argv[1] = Local<Value>::New(Null());
   }
   else {
@@ -531,12 +533,12 @@ int Statement::EIO_AfterStep(eio_req *req) {
 
   if (sto->mode_ & EXEC_LAST_INSERT_ID) {
     sto->handle_->Set(String::New("lastInsertRowID"),
-      Integer::New(sqlite3_last_insert_rowid(db)));
+      Number::New(sqlite3_last_insert_rowid(db)));
   }
 
   if (sto->mode_ & EXEC_AFFECTED_ROWS) {
     sto->handle_->Set(String::New("affectedRows"),
-      Integer::New(sqlite3_changes(db)));
+      Number::New(sqlite3_changes(db)));
   }
 
   TryCatch try_catch;
@@ -549,11 +551,11 @@ int Statement::EIO_AfterStep(eio_req *req) {
     FatalException(try_catch);
   }
 
-  if (req->result == SQLITE_DONE && sto->column_count_) {
+  if (sto->result == SQLITE_DONE && sto->column_count_) {
     sto->FreeColumnData();
   }
 
-  return 0;
+  delete req;
 }
 
 void Statement::FreeColumnData(void) {
@@ -573,7 +575,7 @@ void Statement::InitializeColumns(void) {
   }
 }
 
-void Statement::EIO_Step(eio_req *req) {
+void Statement::UVWORK_Step(uv_work_t *req) {
   Statement *sto = (class Statement *)(req->data);
   sqlite3_stmt *stmt = sto->stmt_;
   assert(stmt);
@@ -582,14 +584,14 @@ void Statement::EIO_Step(eio_req *req) {
   // check if we have already taken a step immediately after prepare
   if (sto->first_rc_ != -1) {
     // This is the first one! Let's just use the rc from when we called
-    // it in EIO_Prepare
-    rc = req->result = sto->first_rc_;
+    // it in UVWORK_Prepare
+    rc = sto->result = sto->first_rc_;
     // Now we set first_rc_ to -1 so that on the next step, it won't
     // think this is the first.
     sto->first_rc_ = -1;
   }
   else {
-    rc = req->result = sqlite3_step(stmt);
+    rc = sto->result = sqlite3_step(stmt);
   }
 
   sto->error_ = false;
@@ -677,17 +679,16 @@ Handle<Value> Statement::Step(const Arguments& args) {
 
   sto->SetCallback(cb);
 
-  eio_custom(EIO_Step, EIO_PRI_DEFAULT, EIO_AfterStep, sto);
+  uv_work_t *req = new uv_work_t;
+  req->data = sto;
 
-  ev_ref(EV_DEFAULT_UC);
+  uv_queue_work(uv_default_loop(), req, UVWORK_Step, UVWORK_AfterStep);
 
   return Undefined();
 }
 
-int Statement::EIO_AfterFetchAll(eio_req *req) {
+void Statement::UVWORK_AfterFetchAll(uv_work_t *req) {
   HandleScope scope;
-  ev_unref(EV_DEFAULT_UC);
-
   struct fetchall_request *fetchall_req
     = (struct fetchall_request *)(req->data);
 
@@ -780,7 +781,7 @@ int Statement::EIO_AfterFetchAll(eio_req *req) {
   if (fetchall_req->pool) {
     int ret = mpool_close(fetchall_req->pool);
     if (ret != MPOOL_ERROR_NONE) {
-      req->result = -1;
+      fetchall_req->result = -1;
       argv[0] = Exception::Error(String::New(mpool_strerror(ret)));
       argv[1] = Local<Value>::New(Undefined());
     }
@@ -798,11 +799,10 @@ int Statement::EIO_AfterFetchAll(eio_req *req) {
 
   sto->FreeColumnData();
   free(fetchall_req);
-
-  return 0;
+  delete req;
 }
 
-void Statement::EIO_FetchAll(eio_req *req) {
+void Statement::UVWORK_FetchAll(uv_work_t *req) {
   struct fetchall_request *fetchall_req
     = (struct fetchall_request *)(req->data);
 
@@ -816,12 +816,12 @@ void Statement::EIO_FetchAll(eio_req *req) {
 
   if (rc != SQLITE_DONE) {
     /* open the pool */
-    fetchall_req->pool = mpool_open(MPOOL_FLAG_USE_MAP_ANON
+    fetchall_req->pool = mpool_open(MPOOL_FLAGS
                                   , 0
                                   , NULL
                                   , &ret);
     if (fetchall_req->pool == NULL) {
-      req->result = -1;
+      fetchall_req->result = -1;
       fetchall_req->rows = NULL;
       fetchall_req->error = (char *) mpool_strerror(ret);
       return;
@@ -931,11 +931,11 @@ void Statement::EIO_FetchAll(eio_req *req) {
     } else {
       fetchall_req->error = (char *) mpool_strerror(ret);
     }
-    req->result = -1;
+    fetchall_req->result = -1;
     return;
   }
 
-  req->result = 0;
+  fetchall_req->result = 0;
   fetchall_req->rows = head;
 }
 
@@ -956,8 +956,10 @@ Handle<Value> Statement::FetchAll(const Arguments& args) {
   fetchall_req->sto = ObjectWrap::Unwrap<Statement>(args.This());
   fetchall_req->cb = Persistent<Function>::New(cb);
 
-  eio_custom(EIO_FetchAll, EIO_PRI_DEFAULT, EIO_AfterFetchAll, fetchall_req);
-  ev_ref(EV_DEFAULT_UC);
+  uv_work_t *req = new uv_work_t;
+  req->data = fetchall_req;
+
+  uv_queue_work(uv_default_loop(), req, UVWORK_FetchAll, UVWORK_AfterFetchAll);
 
   return Undefined();
 }
