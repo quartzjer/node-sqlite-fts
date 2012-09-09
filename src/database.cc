@@ -99,7 +99,8 @@ void Database::UVWORK_Open(uv_work_t *req) {
                           , NULL);
 
   open_req->result = rc;
-
+  free(open_req->filename);
+  open_req->filename = NULL;
   // Set the a 10s timeout valuei for retries on BUSY errors.
   sqlite3_busy_timeout(*dbptr, 10000);
 
@@ -127,6 +128,7 @@ Handle<Value> Database::Open(const Arguments& args) {
       String::New("Could not allocate enough memory")));
   }
 
+  open_req->filename = (char *)malloc(strlen(*filename) + 1);
   strcpy(open_req->filename, *filename);
   open_req->cb = Persistent<Function>::New(cb);
   open_req->dbo = dbo;

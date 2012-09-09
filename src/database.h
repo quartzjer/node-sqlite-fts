@@ -82,7 +82,7 @@ enum ExecMode
 struct open_request {
   Persistent<Function> cb;
   Database *dbo;
-  char filename[1];
+  char *filename;
 
   int result;
 };
