@@ -435,6 +435,9 @@ void Database::UVWORK_Prepare(uv_work_t *req) {
       prep_req->lastInsertId = sqlite3_last_insert_rowid(db);
   if (prep_req->mode & EXEC_AFFECTED_ROWS)
       prep_req->affectedRows = sqlite3_changes(db);
+
+  free(prep_req->sql);
+  prep_req = NULL;
 }
 
 // Statement#prepare(sql, [ options ,] callback);
@@ -492,6 +495,7 @@ Handle<Value> Database::Prepare(const Arguments& args) {
       String::New("Could not allocate enough memory")));
   }
 
+  prep_req->sql = (char *)malloc(strlen(*sql) + 1);
   strcpy(prep_req->sql, *sql);
   prep_req->cb = Persistent<Function>::New(cb);
   prep_req->dbo = dbo;

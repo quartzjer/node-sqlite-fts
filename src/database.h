@@ -102,7 +102,7 @@ struct prepare_request {
   sqlite3_int64 lastInsertId;
   int affectedRows;
   const char* tail;
-  char sql[1];
+  char *sql;
 
   int int1;
   int result;
