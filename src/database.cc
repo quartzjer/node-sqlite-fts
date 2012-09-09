@@ -99,8 +99,7 @@ void Database::UVWORK_Open(uv_work_t *req) {
                           , NULL);
 
   open_req->result = rc;
-  free(open_req->filename);
-  open_req->filename = NULL;
+
   // Set the a 10s timeout valuei for retries on BUSY errors.
   sqlite3_busy_timeout(*dbptr, 10000);
 
@@ -109,6 +108,9 @@ void Database::UVWORK_Open(uv_work_t *req) {
 //   sqlite3_commit_hook(db, CommitHook, open_req->dbo);
 //   sqlite3_rollback_hook(db, RollbackHook, open_req->dbo);
 //   sqlite3_update_hook(db, UpdateHook, open_req->dbo);
+
+  free(open_req->filename);
+  open_req->filename = NULL;
 }
 
 Handle<Value> Database::Open(const Arguments& args) {
