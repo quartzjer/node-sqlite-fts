@@ -3,15 +3,13 @@
 node-sqlite - Asynchronous SQLite3 driver for Node.js
 
 SQLite calls block, so to work around this, synchronous calls happen within
-Node's libeio thread-pool, in a similar manner to how POSIX calls are
-currently made.
+the libuv thread-pool.
 
 # SYNOPSIS
 
 ## High-level Driver
 
-    var sys    = require('sys'),
-        sqlite = require('sqlite');
+    var sqlite = require('sqlite');
 
     var db = new sqlite.Database();
 
@@ -194,6 +192,8 @@ Running the unit tests could not be easier. Simply:
 Orlando Vazquez [ovazquez@gmail.com]
 
 Ryan Dahl [ry@tinyclouds.org]
+
+Brian White (Windows compatibility and GYPification)
 
 # THANKS
 
