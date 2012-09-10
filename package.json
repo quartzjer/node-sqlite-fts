@@ -5,6 +5,7 @@
   "homepage": "http://github.com/quartzjer/node-sqlite-fts",
   "author": "Jeremie Miller <jeremie@jabber.org>",
   "contributors": [
+    "Brian White",
     "Artem Kustikov",
     "Eric Fredricksen",
     "John Wright",
