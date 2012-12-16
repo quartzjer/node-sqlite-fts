@@ -138,7 +138,10 @@ Handle<Value> Database::Open(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = open_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_Open, UVWORK_AfterOpen);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_Open,
+                (uv_after_work_cb)UVWORK_AfterOpen);
 
   dbo->Ref();
 
@@ -201,7 +204,10 @@ Handle<Value> Database::Close(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = close_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_Close, UVWORK_AfterClose);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_Close,
+                (uv_after_work_cb)UVWORK_AfterClose);
 
   dbo->Ref();
 
@@ -367,7 +373,10 @@ Handle<Value> Database::PrepareAndStep(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = prep_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_PrepareAndStep, UVWORK_AfterPrepareAndStep);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_PrepareAndStep,
+                (uv_after_work_cb)UVWORK_AfterPrepareAndStep);
 
   dbo->Ref();
 
@@ -506,7 +515,10 @@ Handle<Value> Database::Prepare(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = prep_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_Prepare, UVWORK_AfterPrepare);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_Prepare,
+                (uv_after_work_cb)UVWORK_AfterPrepare);
 
   dbo->Ref();
 

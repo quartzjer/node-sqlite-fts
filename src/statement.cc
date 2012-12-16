@@ -231,7 +231,10 @@ Handle<Value> Statement::BindObject(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = bind_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_BindArray, UVWORK_AfterBindArray);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_BindArray,
+                (uv_after_work_cb)UVWORK_AfterBindArray);
 
   return Undefined();
 };
@@ -306,7 +309,10 @@ Handle<Value> Statement::BindArray(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = bind_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_BindArray, UVWORK_AfterBindArray);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_BindArray,
+                (uv_after_work_cb)UVWORK_AfterBindArray);
 
   return Undefined();
 }
@@ -402,7 +408,10 @@ Handle<Value> Statement::Bind(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = bind_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_BindArray, UVWORK_AfterBindArray);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_BindArray,
+                (uv_after_work_cb)UVWORK_AfterBindArray);
 
   return Undefined();
 }
@@ -450,7 +459,10 @@ Handle<Value> Statement::Finalize(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = sto;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_Finalize, UVWORK_AfterFinalize);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_Finalize,
+                (uv_after_work_cb)UVWORK_AfterFinalize);
 
   return Undefined();
 }
@@ -682,7 +694,10 @@ Handle<Value> Statement::Step(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = sto;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_Step, UVWORK_AfterStep);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_Step,
+                (uv_after_work_cb)UVWORK_AfterStep);
 
   return Undefined();
 }
@@ -959,7 +974,10 @@ Handle<Value> Statement::FetchAll(const Arguments& args) {
   uv_work_t *req = new uv_work_t;
   req->data = fetchall_req;
 
-  uv_queue_work(uv_default_loop(), req, UVWORK_FetchAll, UVWORK_AfterFetchAll);
+  uv_queue_work(uv_default_loop(),
+                req,
+                UVWORK_FetchAll,
+                (uv_after_work_cb)UVWORK_AfterFetchAll);
 
   return Undefined();
 }
