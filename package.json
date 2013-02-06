@@ -1,11 +1,11 @@
 {
   "name": "sqlite-fts",
   "description": "SQLite3 bindings for Node with FTS4 enabled",
-  "version": "0.0.9",
-  "homepage": "http://github.com/quartzjer/node-sqlite-fts",
-  "author": "Jeremie Miller <jeremie@jabber.org>",
+  "version": "0.1.0",
+  "homepage": "http://github.com/mscdex/node-sqlite-fts",
+  "author": "Brian White",
   "contributors": [
-    "Brian White",
+    "Jeremie Miller <jeremie@jabber.org>",
     "Artem Kustikov",
     "Eric Fredricksen",
     "John Wright",
@@ -14,24 +14,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/quartzjer/node-sqlite-fts.git"
+    "url": "git://github.com/mscdex/node-sqlite-fts.git"
   },
-  "main": "./sqlite-fts",
+  "main": "./lib/sqlite-fts",
   "engines": {
     "node": ">=0.6.0"
   },
   "scripts": {
-    "test": "./run-tests",
     "preinstall": "node-gyp rebuild"
   },
-  "licenses": [
-    {
-      "type": "BSD"
-    }
-  ],
+  "licenses": [{ "type": "BSD" }],
   "dependencies": {
     "extend": "1.0.0"
-  },
-  "devDependencies": {},
-  "optionalDependencies": {}
+  }
 }

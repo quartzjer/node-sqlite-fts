@@ -185,7 +185,6 @@ Running the unit tests could not be easier. Simply:
 # SEE ALSO
 
 * http://sqlite.org/docs.html
-* http://github.com/grumdrig/node-sqlite/
 
 # AUTHORS
 
@@ -193,7 +192,7 @@ Orlando Vazquez [ovazquez@gmail.com]
 
 Ryan Dahl [ry@tinyclouds.org]
 
-Brian White (Windows compatibility and GYPification)
+Brian White (Windows compatibility, GYPification, and more)
 
 # THANKS
 
