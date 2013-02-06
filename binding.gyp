@@ -8,7 +8,7 @@
         'src/statement.cc',
         'src/events.cc',
         'src/mpool.c',
-        'deps/sqlite-amalgamation-3070500/sqlite3.c',
+        'deps/sqlite/sqlite3.c',
       ],
       'conditions': [
         ['OS=="win"', {
@@ -26,7 +26,7 @@
       ],
       'include_dirs': [
         'src',
-        'deps/sqlite-amalgamation-3070500',
+        'deps/sqlite',
       ],
       'cflags': [ '-O3' ],
     },
