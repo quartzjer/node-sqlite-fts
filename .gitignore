@@ -1,5 +1,4 @@
-build/
-.lock-wscript
-sqlite3_bindings.node
-*.a
-*.o
+.gitignore
+build
+*.node
+node_modules
