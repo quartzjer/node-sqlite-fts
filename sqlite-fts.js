@@ -17,7 +17,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 var sqlite = require("./build/Release/sqlite3_bindings");
 var event = require('events');
-var extend = require ('extend');
+var extend = require('extend');
 
 var Database = exports.Database = function () {
   var self = this;
