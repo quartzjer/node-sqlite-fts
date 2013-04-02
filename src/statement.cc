@@ -172,14 +172,10 @@ Handle<Value> Statement::BindObject(const Arguments& args) {
   Local<Object> obj = args[0]->ToObject();
   Local<Array> properties = obj->GetPropertyNames();
 
-  struct bind_request *bind_req = (struct bind_request *)
-    calloc(1, sizeof(struct bind_request));
+  int len = properties->Length();
 
-  int len = bind_req->len = properties->Length();
-  bind_req->pairs = (struct bind_pair *)
+  struct bind_pair *pairs = (struct bind_pair *)
     calloc(len, sizeof(struct bind_pair));
-
-  struct bind_pair *pairs = bind_req->pairs;
 
   for (uint32_t i = 0; i < properties->Length(); i++, pairs++) {
     Local<Value> name = properties->Get(Integer::New(i));
@@ -220,11 +216,17 @@ Handle<Value> Statement::BindObject(const Arguments& args) {
     }
     else {
       free(pairs->key);
+      free(pairs);
       return ThrowException(Exception::TypeError(
             String::New("Unable to bind value of this type")));
     }
   }
 
+  struct bind_request *bind_req = (struct bind_request *)
+    calloc(1, sizeof(struct bind_request));
+
+  bind_req->len = len;
+  bind_req->pairs = pairs;
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
 
@@ -249,15 +251,11 @@ Handle<Value> Statement::BindArray(const Arguments& args) {
     return ThrowException(Exception::TypeError(
       String::New("First argument must be an Array.")));
 
-  struct bind_request *bind_req = (struct bind_request *)
-    calloc(1, sizeof(struct bind_request));
-
   Local<Array> array = Local<Array>::Cast(args[0]);
-  int len = bind_req->len = array->Length();
-  bind_req->pairs = (struct bind_pair *)
-    calloc(len, sizeof(struct bind_pair));
+  int len = array->Length();
 
-  struct bind_pair *pairs = bind_req->pairs;
+  struct bind_pair *pairs = (struct bind_pair *)
+    calloc(len, sizeof(struct bind_pair));
 
   // pack the binds into the struct
   for (int i = 0; i < len; i++, pairs++) {
@@ -298,11 +296,17 @@ Handle<Value> Statement::BindArray(const Arguments& args) {
     }
     else {
       free(pairs->key);
+      free(pairs);
       return ThrowException(Exception::TypeError(
             String::New("Unable to bind value of this type")));
     }
   }
 
+  struct bind_request *bind_req = (struct bind_request *)
+    calloc(1, sizeof(struct bind_request));
+
+  bind_req->len = len;
+  bind_req->pairs = pairs;
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
 
@@ -345,11 +349,8 @@ Handle<Value> Statement::Bind(const Arguments& args) {
     return ThrowException(Exception::TypeError(
           String::New("First argument must be a string, number, array or object.")));
 
-  struct bind_request *bind_req = (struct bind_request *)
-    calloc(1, sizeof(struct bind_request));
-
   bind_req->len = 1;
-  struct bind_pair *pair = bind_req->pairs = (struct bind_pair *)
+  struct bind_pair *pair = (struct bind_pair *)
     calloc(1, sizeof(struct bind_pair));
 
   // setup key
@@ -398,10 +399,16 @@ Handle<Value> Statement::Bind(const Arguments& args) {
   }
   else {
     free(pair->key);
+    free(pair);
     return ThrowException(Exception::TypeError(
           String::New("Unable to bind value of this type")));
   }
 
+  struct bind_request *bind_req = (struct bind_request *)
+    calloc(1, sizeof(struct bind_request));
+
+  bind_req->len = len;
+  bind_req->pairs = pair;
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
 
