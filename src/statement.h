@@ -74,22 +74,22 @@ class Statement : public EventEmitter {
     static Handle<Value> Bind(const Arguments &args);
     static Handle<Value> BindObject(const Arguments &args);
     static Handle<Value> BindArray(const Arguments &args);
-    static void EIO_BindArray(eio_req *req);
-    static int EIO_AfterBindArray(eio_req *req);
+    static void UVWORK_BindArray(uv_work_t *req);
+    static void UVWORK_AfterBindArray(uv_work_t *req);
 
-    static int EIO_AfterFinalize(eio_req *req);
-    static void EIO_Finalize(eio_req *req);
+    static void UVWORK_AfterFinalize(uv_work_t *req);
+    static void UVWORK_Finalize(uv_work_t *req);
     static Handle<Value> Finalize(const Arguments &args);
 
     static Handle<Value> Reset(const Arguments &args);
     static Handle<Value> ClearBindings(const Arguments &args);
 
-    static int EIO_AfterStep(eio_req *req);
-    static void EIO_Step(eio_req *req);
+    static void UVWORK_AfterStep(uv_work_t *req);
+    static void UVWORK_Step(uv_work_t *req);
     static Handle<Value> Step(const Arguments &args);
 
-    static int EIO_AfterFetchAll(eio_req *req);
-    static void EIO_FetchAll(eio_req *req);
+    static void UVWORK_AfterFetchAll(uv_work_t *req);
+    static void UVWORK_FetchAll(uv_work_t *req);
     static Handle<Value> FetchAll(const Arguments &args);
 
     void InitializeColumns(void);
@@ -112,6 +112,8 @@ class Statement : public EventEmitter {
 
     // for statment.step
     cell_node *cells;
+
+    int result;
 };
 
 // indicates the key type (integer index or name string)
@@ -134,6 +136,8 @@ struct bind_request {
 
   struct bind_pair *pairs;
   size_t len;
+
+  int result;
 };
 
 struct bind_pair {
@@ -151,6 +155,8 @@ struct fetchall_request {
   mpool_t *pool;
   char *error;
   struct row_node *rows;
+
+  int result;
 };
 
 #endif

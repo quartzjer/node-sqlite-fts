@@ -38,6 +38,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef _WIN32
+# define caddr_t char *
+#endif
 #include <sys/mman.h>
 
 #ifdef DMALLOC
@@ -271,14 +274,6 @@ static	void	*alloc_pages(mpool_t *mp_p, const unsigned int page_n,
 #ifdef MAP_VARIABLE
     state |= MAP_VARIABLE;
 #endif
-
-    if (BIT_IS_SET(mp_p->mp_flags, MPOOL_FLAG_USE_MAP_ANON)) {
-#ifdef MAP_ANON
-      state |= MAP_ANON;
-#elif defined MAP_ANONYMOUS
-      state |= MAP_ANONYMOUS;
-#endif
-    }
     
     /* mmap from /dev/zero */
     mem = mmap((caddr_t)mp_p->mp_addr, size, PROT_READ | PROT_WRITE, state,
@@ -950,11 +945,7 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
     mp.mp_addr = NULL;
     mp.mp_top = 0;
   }
-  else if (BIT_IS_SET(flags, MPOOL_FLAG_USE_MAP_ANON)) {
-    mp.mp_fd = -1;
-    mp.mp_addr = start_addr;
-    mp.mp_top = 0;
-  }
+#ifndef _WIN32
   else {
     /* open dev-zero for our mmaping */
     mp.mp_fd = open("/dev/zero", O_RDWR, 0);
@@ -966,7 +957,7 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
     /* we start at the front of the file */
     mp.mp_top = 0;
   }
-  
+#endif
   /*
    * Find out how many pages we need for our mpool structure.
    *
@@ -978,10 +969,12 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
   /* now allocate us space for the actual struct */
   mp_p = alloc_pages(&mp, page_n, error_p);
   if (mp_p == NULL) {
+#ifndef _WIN32
     if (mp.mp_fd >= 0) {
       (void)close(mp.mp_fd);
       mp.mp_fd = -1;
     }
+#endif
     return NULL;
   }
   
@@ -1009,10 +1002,12 @@ mpool_t	*mpool_open(const unsigned int flags, const unsigned int page_size,
     ret = free_pointer(&mp, free_addr,
 		       (char *)block_p->mb_bounds_p - (char *)free_addr);
     if (ret != MPOOL_ERROR_NONE) {
+#ifndef _WIN32
       if (mp.mp_fd >= 0) {
-	(void)close(mp.mp_fd);
-	mp.mp_fd = -1;
+        (void)close(mp.mp_fd);
+        mp.mp_fd = -1;
       }
+#endif
       /* NOTE: after this line mp_p will be invalid */
       (void)free_pages(block_p, SIZE_OF_PAGES(&mp, page_n),
 		       BIT_IS_SET(flags, MPOOL_FLAG_USE_SBRK));
@@ -1109,10 +1104,12 @@ int	mpool_close(mpool_t *mp_p)
   }
   
   /* close /dev/zero if necessary */
+#ifndef _WIN32
   if (mp_p->mp_fd >= 0) {
     (void)close(mp_p->mp_fd);
     mp_p->mp_fd = -1;
   }
+#endif
   
   /* invalidate the mpool before we ditch it */
   mp_p->mp_magic = 0;

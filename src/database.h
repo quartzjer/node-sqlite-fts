@@ -44,24 +44,24 @@ class Database : public EventEmitter {
 
     static Handle<Value> New(const Arguments& args);
 
-    static int EIO_AfterOpen(eio_req *req);
-    static void EIO_Open(eio_req *req);
+    static void UVWORK_AfterOpen(uv_work_t *req);
+    static void UVWORK_Open(uv_work_t *req);
     static Handle<Value> Open(const Arguments& args);
 
-    static int EIO_AfterClose(eio_req *req);
-    static void EIO_Close(eio_req *req);
+    static void UVWORK_AfterClose(uv_work_t *req);
+    static void UVWORK_Close(uv_work_t *req);
     static Handle<Value> Close(const Arguments& args);
 
 //     static Handle<Value> LastInsertRowid(const Arguments& args);
-    static int EIO_AfterPrepareAndStep(eio_req *req);
-    static void EIO_PrepareAndStep(eio_req *req);
+    static void UVWORK_AfterPrepareAndStep(uv_work_t *req);
+    static void UVWORK_PrepareAndStep(uv_work_t *req);
     static Handle<Value> PrepareAndStep(const Arguments& args);
 
-    static int EIO_AfterPrepare(eio_req *req);
-    static void EIO_Prepare(eio_req *req);
+    static void UVWORK_AfterPrepare(uv_work_t *req);
+    static void UVWORK_Prepare(uv_work_t *req);
     static Handle<Value> Prepare(const Arguments& args);
 
-    // Return a pointer to the Sqlite handle pointer so that EIO_Open can
+    // Return a pointer to the Sqlite handle pointer so that UVWORK_Open can
     // pass it to sqlite3_open which wants a pointer to an sqlite3 pointer. This
     // is because it wants to initialize our original (sqlite3*) pointer to
     // point to an valid object.
@@ -82,12 +82,16 @@ enum ExecMode
 struct open_request {
   Persistent<Function> cb;
   Database *dbo;
-  char filename[1];
+  char *filename;
+
+  int result;
 };
 
 struct close_request {
   Persistent<Function> cb;
   Database *dbo;
+
+  int result;
 };
 
 struct prepare_request {
@@ -98,7 +102,10 @@ struct prepare_request {
   sqlite3_int64 lastInsertId;
   int affectedRows;
   const char* tail;
-  char sql[1];
+  char *sql;
+
+  int int1;
+  int result;
 };
 
 #endif
