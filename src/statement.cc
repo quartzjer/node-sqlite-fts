@@ -349,7 +349,6 @@ Handle<Value> Statement::Bind(const Arguments& args) {
     return ThrowException(Exception::TypeError(
           String::New("First argument must be a string, number, array or object.")));
 
-  bind_req->len = 1;
   struct bind_pair *pair = (struct bind_pair *)
     calloc(1, sizeof(struct bind_pair));
 
@@ -407,7 +406,7 @@ Handle<Value> Statement::Bind(const Arguments& args) {
   struct bind_request *bind_req = (struct bind_request *)
     calloc(1, sizeof(struct bind_request));
 
-  bind_req->len = len;
+  bind_req->len = 1;
   bind_req->pairs = pair;
   bind_req->cb = Persistent<Function>::New(cb);
   bind_req->sto = sto;
